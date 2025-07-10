@@ -3,31 +3,15 @@ package com.filimonov.shoppinglist.presentation
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
-import android.text.Editable
-import android.text.TextWatcher
-import android.util.Log
-import android.widget.Button
-import android.widget.EditText
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updatePadding
-import androidx.core.widget.doOnTextChanged
-import androidx.lifecycle.ViewModelProvider
 import com.filimonov.shoppinglist.R
 import com.filimonov.shoppinglist.domain.ShopItem
-import com.google.android.material.textfield.TextInputLayout
 
-class ShopItemActivity : AppCompatActivity() {
-
-    private lateinit var tilName: TextInputLayout
-    private lateinit var tilCount: TextInputLayout
-    private lateinit var etName: EditText
-    private lateinit var etCount: EditText
-    private lateinit var saveButton: Button
-
-    private lateinit var viewModel: ShopItemViewModel
+class ShopItemActivity : AppCompatActivity(), ShopItemFragment.OnEditingFinishedListener {
 
     private var screenMode = MODE_UNKNOWN
     private var shopItemId = ShopItem.UNDEFINED_ID
@@ -36,7 +20,7 @@ class ShopItemActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_shop_item)
         enableEdgeToEdge()
-        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main)) { v, insets ->
+        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.shop_item_container)) { v, insets ->
             val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
             val imeInsets = insets.getInsets(WindowInsetsCompat.Type.ime())
             v.updatePadding(
@@ -48,72 +32,25 @@ class ShopItemActivity : AppCompatActivity() {
             insets
         }
         parseIntent()
-        initViews()
-        viewModel = ViewModelProvider(this)[ShopItemViewModel::class.java]
-        observeViewModel()
-        addTextChangedListeners()
-        launchRightMode()
+        if (savedInstanceState == null) {
+            launchRightMode()
+        }
+    }
+
+    override fun onEditingFinished() {
+        finish()
     }
 
     private fun launchRightMode() {
-        when (screenMode) {
-            MODE_ADD -> launchAddMode()
-            MODE_EDIT -> launchEditMode()
+        val fragment = when (screenMode) {
+            MODE_ADD -> ShopItemFragment.newInstanceAddItem()
+            MODE_EDIT -> ShopItemFragment.newInstanceEditItem(shopItemId)
+            else -> ShopItemFragment()
         }
+        supportFragmentManager.beginTransaction()
+            .replace(R.id.shop_item_container, fragment)
+            .commit()
     }
-
-    private fun addTextChangedListeners() {
-        etName.doOnTextChanged { _, _, _, _ ->
-            viewModel.resetErrorInputName()
-        }
-        etCount.doOnTextChanged { _, _, _, _ ->
-            viewModel.resetErrorInputCount()
-        }
-    }
-
-    private fun observeViewModel() {
-        viewModel.errorInputName.observe(this) {
-            val message = if (it) {
-                getString(R.string.invalid_name)
-            } else {
-                null
-            }
-            tilName.error = message
-        }
-        viewModel.errorInputCount.observe(this) {
-            val message = if (it) {
-                getString(R.string.invalid_name)
-            } else {
-                null
-            }
-            tilCount.error = message
-        }
-        viewModel.isFinished.observe(this) {
-            finish()
-        }
-    }
-
-    private fun launchEditMode() {
-        viewModel.getShopItem(shopItemId)
-        viewModel.shopItem.observe(this) {
-            etName.setText(it.name)
-            etCount.setText(it.count.toString())
-        }
-        saveButton.setOnClickListener {
-            val name = etName.text.toString().trim()
-            val count = etCount.text.toString().trim()
-            viewModel.editShopItem(name, count)
-        }
-    }
-
-    private fun launchAddMode() {
-        saveButton.setOnClickListener {
-            val name = etName.text.toString().trim()
-            val count = etCount.text.toString().trim()
-            viewModel.addShopItem(name, count)
-        }
-    }
-
     private fun parseIntent() {
         if (!intent.hasExtra(EXTRA_MODE_SCREEN)) {
             throw RuntimeException("Param screen mode is absent")
@@ -130,15 +67,6 @@ class ShopItemActivity : AppCompatActivity() {
             shopItemId = intent.getIntExtra(EXTRA_SHOP_ITEM_ID, ShopItem.UNDEFINED_ID)
         }
     }
-
-    private fun initViews() {
-        tilName = findViewById(R.id.til_name)
-        tilCount = findViewById(R.id.til_count)
-        etName = findViewById(R.id.et_name)
-        etCount = findViewById(R.id.et_count)
-        saveButton = findViewById(R.id.save_button)
-    }
-
     companion object {
 
         private const val EXTRA_MODE_SCREEN = "extra_mode"
